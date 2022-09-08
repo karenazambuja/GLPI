@@ -8,6 +8,7 @@ ARG environment=production
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PHP_VERSION=8.0
+ENV NPM_VERSION=16
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
 	curl \
@@ -44,7 +45,7 @@ RUN curl -L -o /etc/ssl/certs/cacert.pem https://curl.haxx.se/ca/cacert.pem && \
 ###############################################################
 
 # Setting the www-data group ID to 1000 and www-data user ID to 1000
-RUN groupmod -g 1000 www-data && usermod -u 1000 -g 1000 www-data
+RUN groupmod -g 1000 www-data && usermod -u 1000 -g 1000 -d /home/www-data www-data
 
 # Changing keepalive_timeout config
 RUN sed -i 's/keepalive_timeout.*/keepalive_timeout 600;/' /etc/nginx/nginx.conf
@@ -133,7 +134,23 @@ RUN if [ "${environment}" = "development" ] ; then \
     echo "xdebug.log_level = 3" >> ${XDEBUG_FILE} && \
     echo "xdebug.log=/var/log/xdebug/xdebug.log" >> ${XDEBUG_FILE} && \
     curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer && \
-    composer selfupdate --2 \
+    composer selfupdate --2 \    
+    ; fi
+
+
+# Install NVM
+ENV NVM_DIR=/usr/local/nvm
+RUN if [ "${environment}" = "development" ] ; then \
+    mkdir -p /usr/local/nvm && \
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash && \
+    \. "$NVM_DIR/nvm.sh" && \
+    nvm install ${NPM_VERSION} && \
+    cd /usr/local/ && chown www-data:www-data -R nvm && \
+    mkdir /home/www-data && \
+    cd /home && \
+    chown www-data:www-data -R www-data && \
+    cp /root/.bashrc /home/www-data/.bashrc && \
+    chown www-data:www-data /home/www-data/.bashrc \
     ; fi
 
 ###############################################################
